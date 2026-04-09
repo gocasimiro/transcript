@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# transcript — transcreve áudios usando Parakeet MLX
+# Uso: transcript <arquivo> [arquivo2 ...] [opções]
+#
+# Opções:
+#   --out <dir>   diretório de saída (padrão: mesmo do áudio)
+#   --help
+
+set -euo pipefail
+
+export PATH="/Users/gocasimiro/.local/bin:$PATH"
+
+OUT_DIR=""
+FILES=()
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out)    OUT_DIR="$2"; shift 2 ;;
+    --help|-h)
+      sed -n '2,8p' "$0" | sed 's/^# //'
+      exit 0
+      ;;
+    -*) echo "Opção desconhecida: $1" >&2; exit 1 ;;
+    *)  FILES+=("$1"); shift ;;
+  esac
+done
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+  echo "Uso: transcript <arquivo> [arquivo2 ...] [--out <dir>]" >&2
+  exit 1
+fi
+
+for FILE in "${FILES[@]}"; do
+  if [[ ! -f "$FILE" ]]; then
+    echo "Arquivo não encontrado: $FILE" >&2
+    continue
+  fi
+
+  ABS_FILE="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
+  DIR="${OUT_DIR:-$(dirname "$ABS_FILE")}"
+  BASENAME="$(basename "${FILE%.*}")"
+  TXT_FILE="$DIR/$BASENAME.txt"
+  MD_FILE="$DIR/$BASENAME.md"
+
+  # Duração do áudio
+  DURATION=$(ffprobe -v error -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 "$ABS_FILE" 2>/dev/null \
+    | awk '{printf "%d:%02d", $1/60, $1%60}')
+
+  echo "Transcrevendo: $FILE"
+  parakeet-mlx "$ABS_FILE" \
+    --output-dir "$DIR" \
+    --output-format txt
+
+  if [[ ! -f "$TXT_FILE" ]]; then
+    echo "Erro: arquivo de saída não gerado." >&2
+    continue
+  fi
+
+  TRANSCRIPTION=$(cat "$TXT_FILE")
+  DATE=$(date +"%Y-%m-%d")
+
+  # Gera .md com front matter
+  cat > "$MD_FILE" <<MDEOF
+---
+title: "$BASENAME"
+date: $DATE
+source: "$ABS_FILE"
+duration: "$DURATION"
+---
+
+$TRANSCRIPTION
+MDEOF
+
+  rm "$TXT_FILE"
+
+  echo "Salvo em: $MD_FILE"
+  echo "---"
+  cat "$MD_FILE"
+done
