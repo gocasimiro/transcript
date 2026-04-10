@@ -97,7 +97,7 @@ download_audio() {
     --audio-format wav \
     --output "${out_template}.%(ext)s" \
     --no-playlist \
-    "$url"
+    "$url" >&2
 
   # Localiza o arquivo gerado com glob seguro (sem ls)
   local -a wavfiles=("${out_template}"*.wav)
