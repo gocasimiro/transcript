@@ -88,19 +88,16 @@ download_audio() {
   # Cria TMP_DIR uma única vez para toda a execução
   [[ -z "$TMP_DIR" ]] && TMP_DIR="$(mktemp -d)"
 
-  # Nome fixo e previsível; yt-dlp adiciona a extensão
-  local out_template="$TMP_DIR/audio_$(date +%s%N)"
-
   echo "Baixando áudio: $url" >&2
   yt-dlp \
     --extract-audio \
     --audio-format wav \
-    --output "${out_template}.%(ext)s" \
+    --output "$TMP_DIR/%(title)s.%(ext)s" \
     --no-playlist \
     "$url" >&2
 
-  # Localiza o arquivo gerado com glob seguro (sem ls)
-  local -a wavfiles=("${out_template}"*.wav)
+  # Localiza o arquivo gerado com glob seguro — suporta espaços no título
+  local -a wavfiles=("$TMP_DIR"/*.wav)
   if [[ ${#wavfiles[@]} -eq 0 || ! -f "${wavfiles[0]}" ]]; then
     echo "Erro: yt-dlp não gerou arquivo de áudio." >&2
     return 1
