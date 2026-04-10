@@ -64,30 +64,35 @@ transcript aula1.m4a aula2.mov reuniao.mp3
 
 Formatos suportados: qualquer formato que o `ffmpeg` aceita (`.m4a`, `.mp3`, `.wav`, `.mov`, `.mp4`, etc.)
 
-## Opções avançadas
+## Idiomas suportados
 
-> **Nota sobre idioma:** o modelo padrão (`parakeet-tdt`) é treinado exclusivamente em inglês. Áudios em outros idiomas serão transcritos com qualidade reduzida. Para suporte multilíngue, use `--model` para especificar um modelo compatível.
+O modelo padrão (`parakeet-tdt-0.6b-v3`) é **multilíngue** — detecta o idioma automaticamente sem configuração. Suporta 25 idiomas europeus, incluindo português (pt), inglês (en), espanhol (es), francês (fr), alemão (de) e italiano (it).
+
+> Nota: o modelo foi treinado principalmente com português europeu (EP). Português brasileiro pode ter qualidade ligeiramente inferior.
+
+## Opções avançadas
 
 | Flag | Padrão | Descrição |
 |------|--------|-----------|
 | `--out <dir>` | mesmo diretório do áudio | Diretório de saída |
-| `--model <repo>` | `mlx-community/parakeet-tdt-0.6b-v2` | Modelo HuggingFace a usar |
+| `--model <repo>` | `mlx-community/parakeet-tdt-0.6b-v3` | Modelo HuggingFace a usar |
 | `--decoding <método>` | `greedy` | Algoritmo: `greedy` ou `beam` |
 | `--beam-size <n>` | `5` | Largura do beam (requer `--decoding beam`) |
 | `--chunk <segundos>` | `120` | Duração de cada chunk (`0` = desativado) |
 | `--overlap <segundos>` | `15` | Sobreposição entre chunks |
+| `--local-attention` | desativado | Atenção local para áudios longos (recomendado para >24 min) |
 
 ### Exemplos
 
 ```bash
-# Decodificação beam para maior precisão
-transcript audio.m4a --decoding beam --beam-size 8
+# Transcrição padrão (português detectado automaticamente)
+transcript audio.m4a
 
-# Trocar modelo
-transcript audio.m4a --model mlx-community/parakeet-tdt-0.6b-v3
+# Áudio longo com atenção local
+transcript reuniao_3h.mp4 --local-attention
 
 # Áudio muito longo com chunks menores
-transcript reuniao_3h.mp4 --chunk 60 --overlap 5
+transcript reuniao_3h.mp4 --chunk 60 --overlap 5 --local-attention
 ```
 
 ## Filosofia

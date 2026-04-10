@@ -56,7 +56,8 @@ assert_contains "--help mostra '--model'"     "$output" "--model"
 assert_contains "--help mostra '--decoding'"  "$output" "--decoding"
 assert_contains "--help mostra '--beam-size'" "$output" "--beam-size"
 assert_contains "--help mostra '--chunk'"     "$output" "--chunk"
-assert_contains "--help mostra '--overlap'"   "$output" "--overlap"
+assert_contains "--help mostra '--overlap'"         "$output" "--overlap"
+assert_contains "--help mostra '--local-attention'" "$output" "--local-attention"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -95,6 +96,8 @@ for flag_and_val in "--model mlx-community/test" "--decoding beam" "--beam-size 
   output=$("$SCRIPT" "$flag" "$val" /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
   assert_not_contains "flag $flag reconhecida pelo parser" "$output" "Opção desconhecida"
 done
+output=$("$SCRIPT" --local-attention /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "flag --local-attention reconhecida pelo parser" "$output" "Opção desconhecida"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -136,9 +139,17 @@ assert_contains "--beam-size sem beam emite aviso" "$output" "Aviso"
 echo ""
 
 # ---------------------------------------------------------------------------
-# 9. --chunk 0 não deve emitir erro (é o modo "desativado")
+# 9a. --local-attention (flag booleana sem valor)
 # ---------------------------------------------------------------------------
-echo "# Grupo 9: --chunk 0"
+echo "# Grupo 9a: --local-attention"
+output=$("$SCRIPT" --local-attention /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "--local-attention não emite erro" "$output" "Erro:"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 9b. --chunk 0 não deve emitir erro (é o modo "desativado")
+# ---------------------------------------------------------------------------
+echo "# Grupo 9b: --chunk 0"
 output=$("$SCRIPT" --chunk 0 /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
 assert_not_contains "--chunk 0 não emite erro de validação" "$output" "Erro:"
 echo ""
