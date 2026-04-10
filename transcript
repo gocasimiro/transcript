@@ -46,12 +46,30 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   exit 1
 fi
 
+# Validações
+if [[ -n "$DECODING" ]]; then
+  case "$DECODING" in
+    greedy|beam) ;;
+    *) echo "Erro: --decoding deve ser 'greedy' ou 'beam'" >&2; exit 1 ;;
+  esac
+fi
+
+if [[ -n "$BEAM_SIZE" ]]; then
+  if ! [[ "$BEAM_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Erro: --beam-size deve ser um inteiro positivo" >&2; exit 1
+  fi
+  if [[ "$DECODING" != "beam" ]]; then
+    echo "Aviso: --beam-size só tem efeito com --decoding beam" >&2
+  fi
+fi
+
 # Monta flags extras para o parakeet-mlx
 EXTRA_FLAGS=()
 [[ -n "$MODEL" ]]           && EXTRA_FLAGS+=(--model "$MODEL")
 [[ -n "$DECODING" ]]        && EXTRA_FLAGS+=(--decoding "$DECODING")
 [[ -n "$BEAM_SIZE" ]]       && EXTRA_FLAGS+=(--beam-size "$BEAM_SIZE")
-[[ -n "$CHUNK_DURATION" ]]  && EXTRA_FLAGS+=(--chunk-duration "$CHUNK_DURATION")
+# --chunk 0 = desativado: não repassa a flag
+[[ -n "$CHUNK_DURATION" && "$CHUNK_DURATION" != "0" ]] && EXTRA_FLAGS+=(--chunk-duration "$CHUNK_DURATION")
 [[ -n "$OVERLAP_DURATION" ]] && EXTRA_FLAGS+=(--overlap-duration "$OVERLAP_DURATION")
 
 for FILE in "${FILES[@]}"; do

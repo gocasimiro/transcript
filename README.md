@@ -66,12 +66,15 @@ Formatos suportados: qualquer formato que o `ffmpeg` aceita (`.m4a`, `.mp3`, `.w
 
 ## Opções avançadas
 
+> **Nota sobre idioma:** o modelo padrão (`parakeet-tdt`) é treinado exclusivamente em inglês. Áudios em outros idiomas serão transcritos com qualidade reduzida. Para suporte multilíngue, use `--model` para especificar um modelo compatível.
+
 | Flag | Padrão | Descrição |
 |------|--------|-----------|
+| `--out <dir>` | mesmo diretório do áudio | Diretório de saída |
 | `--model <repo>` | `mlx-community/parakeet-tdt-0.6b-v2` | Modelo HuggingFace a usar |
-| `--decoding <método>` | `greedy` | Algoritmo de decodificação: `greedy` ou `beam` |
-| `--beam-size <n>` | `5` | Largura do beam (só se `--decoding beam`) |
-| `--chunk <segundos>` | `120` | Duração de cada chunk para áudios longos (`0` = desativado) |
+| `--decoding <método>` | `greedy` | Algoritmo: `greedy` ou `beam` |
+| `--beam-size <n>` | `5` | Largura do beam (requer `--decoding beam`) |
+| `--chunk <segundos>` | `120` | Duração de cada chunk (`0` = desativado) |
 | `--overlap <segundos>` | `15` | Sobreposição entre chunks |
 
 ### Exemplos
@@ -86,10 +89,6 @@ transcript audio.m4a --model mlx-community/parakeet-tdt-0.6b-v3
 # Áudio muito longo com chunks menores
 transcript reuniao_3h.mp4 --chunk 60 --overlap 5
 ```
-
-### Nota sobre idioma
-
-O modelo padrão (`parakeet-tdt`) é treinado exclusivamente em inglês. Áudios em português serão transcritos com qualidade reduzida, independente das opções de decodificação. Para suporte multilíngue, use `--model` para especificar um modelo que suporte o idioma desejado.
 
 ## Filosofia
 

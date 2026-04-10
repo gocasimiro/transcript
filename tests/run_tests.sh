@@ -22,6 +22,16 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local label="$1" output="$2" unexpected="$3"
+  if echo "$output" | grep -qF -- "$unexpected"; then
+    fail "$label — não deveria conter: '$unexpected'"
+    echo "    Output: $output"
+  else
+    pass "$label"
+  fi
+}
+
 assert_exit() {
   local label="$1" code="$2" expected="$3"
   if [[ "$code" -eq "$expected" ]]; then
@@ -68,33 +78,69 @@ assert_contains "opção inválida mostra mensagem de erro" "$output" "Opção d
 echo ""
 
 # ---------------------------------------------------------------------------
-# 4. Arquivo inexistente → avisa e continua (exit 0 porque o loop continua)
+# 4. Arquivo inexistente → avisa no stderr
 # ---------------------------------------------------------------------------
 echo "# Grupo 4: arquivo inexistente"
-# Para testar sem chamar parakeet-mlx de verdade, passamos um arquivo que não existe
-# O script deve continuar e imprimir o erro, mas como FILES fica sem sucesso,
-# queremos verificar a mensagem de erro.
 output=$("$SCRIPT" /tmp/arquivo_que_nao_existe_transcript_test.mp3 2>&1) && code=$? || code=$?
 assert_contains "arquivo inexistente mostra aviso" "$output" "Arquivo não encontrado"
 echo ""
 
 # ---------------------------------------------------------------------------
-# 5. Dry-run de parsing: verifica que --model, --decoding, --beam-size,
-#    --chunk e --overlap são aceitos sem "Opção desconhecida"
-#    (vão falhar no parakeet-mlx pois o arquivo não existe, mas o parse
-#     deve funcionar antes disso)
+# 5. Parsing de novas flags (aceitas pelo parser sem "Opção desconhecida")
 # ---------------------------------------------------------------------------
 echo "# Grupo 5: parsing de novas flags"
 for flag_and_val in "--model mlx-community/test" "--decoding beam" "--beam-size 8" "--chunk 60" "--overlap 10"; do
   flag=$(echo "$flag_and_val" | cut -d' ' -f1)
   val=$(echo "$flag_and_val" | cut -d' ' -f2)
   output=$("$SCRIPT" "$flag" "$val" /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
-  if echo "$output" | grep -qF "Opção desconhecida"; then
-    fail "flag $flag não reconhecida pelo parser"
-  else
-    pass "flag $flag reconhecida pelo parser"
-  fi
+  assert_not_contains "flag $flag reconhecida pelo parser" "$output" "Opção desconhecida"
 done
+echo ""
+
+# ---------------------------------------------------------------------------
+# 6. Validação de --decoding (rejeita valores inválidos)
+# ---------------------------------------------------------------------------
+echo "# Grupo 6: validação de --decoding"
+output=$("$SCRIPT" --decoding invalido /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_exit "--decoding inválido sai com código 1" "$code" "1"
+assert_contains "--decoding inválido mostra erro" "$output" "greedy"
+
+output=$("$SCRIPT" --decoding greedy /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "--decoding greedy aceito sem erro" "$output" "Erro:"
+
+output=$("$SCRIPT" --decoding beam /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "--decoding beam aceito sem erro" "$output" "Erro:"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 7. Validação de --beam-size (rejeita não-inteiro e zero)
+# ---------------------------------------------------------------------------
+echo "# Grupo 7: validação de --beam-size"
+output=$("$SCRIPT" --beam-size abc /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_exit "--beam-size string sai com código 1" "$code" "1"
+assert_contains "--beam-size string mostra erro" "$output" "inteiro positivo"
+
+output=$("$SCRIPT" --beam-size 0 /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_exit "--beam-size 0 sai com código 1" "$code" "1"
+
+output=$("$SCRIPT" --decoding beam --beam-size 5 /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "--beam-size válido com beam aceito" "$output" "Erro:"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 8. --beam-size sem --decoding beam emite aviso
+# ---------------------------------------------------------------------------
+echo "# Grupo 8: --beam-size sem --decoding beam"
+output=$("$SCRIPT" --beam-size 8 /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_contains "--beam-size sem beam emite aviso" "$output" "Aviso"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 9. --chunk 0 não deve emitir erro (é o modo "desativado")
+# ---------------------------------------------------------------------------
+echo "# Grupo 9: --chunk 0"
+output=$("$SCRIPT" --chunk 0 /tmp/nao_existe.mp3 2>&1) && code=$? || code=$?
+assert_not_contains "--chunk 0 não emite erro de validação" "$output" "Erro:"
 echo ""
 
 # ---------------------------------------------------------------------------
