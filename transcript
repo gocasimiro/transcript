@@ -91,7 +91,7 @@ download_audio() {
   # Nome fixo e previsível; yt-dlp adiciona a extensão
   local out_template="$TMP_DIR/audio_$(date +%s%N)"
 
-  echo "Baixando áudio: $url"
+  echo "Baixando áudio: $url" >&2
   yt-dlp \
     --extract-audio \
     --audio-format wav \
@@ -105,7 +105,7 @@ download_audio() {
     echo "Erro: yt-dlp não gerou arquivo de áudio." >&2
     return 1
   fi
-  echo "${wavfiles[0]}"
+  echo "${wavfiles[0]}"   # único stdout: o caminho do arquivo
 }
 
 for INPUT in "${FILES[@]}"; do
