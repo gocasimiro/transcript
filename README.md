@@ -64,6 +64,33 @@ transcript aula1.m4a aula2.mov reuniao.mp3
 
 Formatos suportados: qualquer formato que o `ffmpeg` aceita (`.m4a`, `.mp3`, `.wav`, `.mov`, `.mp4`, etc.)
 
+## Opções avançadas
+
+| Flag | Padrão | Descrição |
+|------|--------|-----------|
+| `--model <repo>` | `mlx-community/parakeet-tdt-0.6b-v2` | Modelo HuggingFace a usar |
+| `--decoding <método>` | `greedy` | Algoritmo de decodificação: `greedy` ou `beam` |
+| `--beam-size <n>` | `5` | Largura do beam (só se `--decoding beam`) |
+| `--chunk <segundos>` | `120` | Duração de cada chunk para áudios longos (`0` = desativado) |
+| `--overlap <segundos>` | `15` | Sobreposição entre chunks |
+
+### Exemplos
+
+```bash
+# Decodificação beam para maior precisão
+transcript audio.m4a --decoding beam --beam-size 8
+
+# Trocar modelo
+transcript audio.m4a --model mlx-community/parakeet-tdt-0.6b-v3
+
+# Áudio muito longo com chunks menores
+transcript reuniao_3h.mp4 --chunk 60 --overlap 5
+```
+
+### Nota sobre idioma
+
+O modelo padrão (`parakeet-tdt`) é treinado exclusivamente em inglês. Áudios em português serão transcritos com qualidade reduzida, independente das opções de decodificação. Para suporte multilíngue, use `--model` para especificar um modelo que suporte o idioma desejado.
+
 ## Filosofia
 
 A ideia por trás dessa ferramenta é tratar gravações de áudio como **matéria-prima** para trabalho com IA. O arquivo `.md` com front matter é o formato ideal para isso — a IA processa bem, é legível por humanos e integra com ferramentas como Obsidian, Claude Code e qualquer sistema de arquivos baseado em texto.

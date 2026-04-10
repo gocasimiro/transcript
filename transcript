@@ -3,7 +3,12 @@
 # Uso: transcript <arquivo> [arquivo2 ...] [opções]
 #
 # Opções:
-#   --out <dir>   diretório de saída (padrão: mesmo do áudio)
+#   --out <dir>          diretório de saída (padrão: mesmo do áudio)
+#   --model <repo>       modelo HuggingFace (padrão: mlx-community/parakeet-tdt-0.6b-v2)
+#   --decoding <método>  greedy ou beam (padrão: greedy)
+#   --beam-size <n>      tamanho do beam quando --decoding beam (padrão: 5)
+#   --chunk <segundos>   duração de cada chunk em segundos (padrão: 120, 0=desativado)
+#   --overlap <segundos> sobreposição entre chunks em segundos (padrão: 15)
 #   --help
 
 set -euo pipefail
@@ -12,13 +17,23 @@ export PATH="/Users/gocasimiro/.local/bin:$PATH"
 
 OUT_DIR=""
 FILES=()
+MODEL=""
+DECODING=""
+BEAM_SIZE=""
+CHUNK_DURATION=""
+OVERLAP_DURATION=""
 
 # Parse args
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --out)    OUT_DIR="$2"; shift 2 ;;
+    --out)      OUT_DIR="$2"; shift 2 ;;
+    --model)    MODEL="$2"; shift 2 ;;
+    --decoding) DECODING="$2"; shift 2 ;;
+    --beam-size) BEAM_SIZE="$2"; shift 2 ;;
+    --chunk)    CHUNK_DURATION="$2"; shift 2 ;;
+    --overlap)  OVERLAP_DURATION="$2"; shift 2 ;;
     --help|-h)
-      sed -n '2,8p' "$0" | sed 's/^# //'
+      sed -n '2,14p' "$0" | sed 's/^# //'
       exit 0
       ;;
     -*) echo "Opção desconhecida: $1" >&2; exit 1 ;;
@@ -30,6 +45,14 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
   echo "Uso: transcript <arquivo> [arquivo2 ...] [--out <dir>]" >&2
   exit 1
 fi
+
+# Monta flags extras para o parakeet-mlx
+EXTRA_FLAGS=()
+[[ -n "$MODEL" ]]           && EXTRA_FLAGS+=(--model "$MODEL")
+[[ -n "$DECODING" ]]        && EXTRA_FLAGS+=(--decoding "$DECODING")
+[[ -n "$BEAM_SIZE" ]]       && EXTRA_FLAGS+=(--beam-size "$BEAM_SIZE")
+[[ -n "$CHUNK_DURATION" ]]  && EXTRA_FLAGS+=(--chunk-duration "$CHUNK_DURATION")
+[[ -n "$OVERLAP_DURATION" ]] && EXTRA_FLAGS+=(--overlap-duration "$OVERLAP_DURATION")
 
 for FILE in "${FILES[@]}"; do
   if [[ ! -f "$FILE" ]]; then
@@ -51,7 +74,8 @@ for FILE in "${FILES[@]}"; do
   echo "Transcrevendo: $FILE"
   parakeet-mlx "$ABS_FILE" \
     --output-dir "$DIR" \
-    --output-format txt
+    --output-format txt \
+    "${EXTRA_FLAGS[@]}"
 
   if [[ ! -f "$TXT_FILE" ]]; then
     echo "Erro: arquivo de saída não gerado." >&2
