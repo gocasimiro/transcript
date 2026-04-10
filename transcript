@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # transcript — transcreve áudios usando Parakeet MLX
-# Uso: transcript <arquivo> [arquivo2 ...] [opções]
+# Uso: transcript <arquivo|url> [arquivo2|url2 ...] [opções]
 #
 # Opções:
-#   --out <dir>          diretório de saída (padrão: mesmo do áudio)
+#   --out <dir>          diretório de saída (padrão: mesmo do áudio / atual para URLs)
 #   --model <repo>       modelo HuggingFace (padrão: mlx-community/parakeet-tdt-0.6b-v3)
 #   --decoding <método>  greedy ou beam (padrão: greedy)
 #   --beam-size <n>      tamanho do beam quando --decoding beam (padrão: 5)
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-export PATH="/Users/gocasimiro/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
 
 OUT_DIR=""
 FILES=()
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
-  echo "Uso: transcript <arquivo> [arquivo2 ...] [--out <dir>]" >&2
+  echo "Uso: transcript <arquivo|url> [arquivo2|url2 ...] [--out <dir>]" >&2
   exit 1
 fi
 
@@ -76,15 +76,69 @@ EXTRA_FLAGS=(--model "${MODEL:-mlx-community/parakeet-tdt-0.6b-v3}")
 [[ -n "$OVERLAP_DURATION" ]] && EXTRA_FLAGS+=(--overlap-duration "$OVERLAP_DURATION")
 [[ "$LOCAL_ATTENTION" -eq 1 ]] && EXTRA_FLAGS+=(--local-attention)
 
-for FILE in "${FILES[@]}"; do
-  if [[ ! -f "$FILE" ]]; then
-    echo "Arquivo não encontrado: $FILE" >&2
+# Diretório temporário único para todos os downloads da execução
+TMP_DIR=""
+cleanup() { [[ -n "$TMP_DIR" ]] && rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
+
+is_url() { [[ "$1" =~ ^https?:// ]]; }
+
+download_audio() {
+  local url="$1"
+  # Cria TMP_DIR uma única vez para toda a execução
+  [[ -z "$TMP_DIR" ]] && TMP_DIR="$(mktemp -d)"
+
+  # Nome fixo e previsível; yt-dlp adiciona a extensão
+  local out_template="$TMP_DIR/audio_$(date +%s%N)"
+
+  echo "Baixando áudio: $url"
+  yt-dlp \
+    --extract-audio \
+    --audio-format wav \
+    --output "${out_template}.%(ext)s" \
+    --no-playlist \
+    "$url"
+
+  # Localiza o arquivo gerado com glob seguro (sem ls)
+  local -a wavfiles=("${out_template}"*.wav)
+  if [[ ${#wavfiles[@]} -eq 0 || ! -f "${wavfiles[0]}" ]]; then
+    echo "Erro: yt-dlp não gerou arquivo de áudio." >&2
+    return 1
+  fi
+  echo "${wavfiles[0]}"
+}
+
+for INPUT in "${FILES[@]}"; do
+  SOURCE_URL=""
+  AUDIO_FILE=""
+
+  # Resolve URL para arquivo local temporário
+  if is_url "$INPUT"; then
+    if ! command -v yt-dlp &>/dev/null; then
+      echo "Erro: yt-dlp não encontrado. Instale com: brew install yt-dlp" >&2
+      continue
+    fi
+    SOURCE_URL="$INPUT"
+    AUDIO_FILE="$(download_audio "$INPUT")" || continue
+  else
+    AUDIO_FILE="$INPUT"
+  fi
+
+  if [[ ! -f "$AUDIO_FILE" ]]; then
+    echo "Arquivo não encontrado: $AUDIO_FILE" >&2
     continue
   fi
 
-  ABS_FILE="$(cd "$(dirname "$FILE")" && pwd)/$(basename "$FILE")"
-  DIR="${OUT_DIR:-$(dirname "$ABS_FILE")}"
-  BASENAME="$(basename "${FILE%.*}")"
+  ABS_FILE="$(cd "$(dirname "$AUDIO_FILE")" && pwd)/$(basename "$AUDIO_FILE")"
+  # URLs sem --out: salva no diretório atual (arquivo local: junto ao arquivo)
+  if [[ -n "$OUT_DIR" ]]; then
+    DIR="$OUT_DIR"
+  elif [[ -n "$SOURCE_URL" ]]; then
+    DIR="$(pwd)"
+  else
+    DIR="$(dirname "$ABS_FILE")"
+  fi
+  BASENAME="$(basename "${AUDIO_FILE%.*}")"
   TXT_FILE="$DIR/$BASENAME.txt"
   MD_FILE="$DIR/$BASENAME.md"
 
@@ -93,7 +147,7 @@ for FILE in "${FILES[@]}"; do
     -of default=noprint_wrappers=1:nokey=1 "$ABS_FILE" 2>/dev/null \
     | awk '{printf "%d:%02d", $1/60, $1%60}')
 
-  echo "Transcrevendo: $FILE"
+  echo "Transcrevendo: $BASENAME"
   parakeet-mlx "$ABS_FILE" \
     --output-dir "$DIR" \
     --output-format txt \
@@ -106,13 +160,14 @@ for FILE in "${FILES[@]}"; do
 
   TRANSCRIPTION=$(cat "$TXT_FILE")
   DATE=$(date +"%Y-%m-%d")
+  SOURCE="${SOURCE_URL:-$ABS_FILE}"
 
   # Gera .md com front matter
   cat > "$MD_FILE" <<MDEOF
 ---
 title: "$BASENAME"
 date: $DATE
-source: "$ABS_FILE"
+source: "$SOURCE"
 duration: "$DURATION"
 ---
 

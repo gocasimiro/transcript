@@ -34,8 +34,8 @@ Texto transcrito aqui...
 ### Instalação
 
 ```bash
-# 1. Instalar ffmpeg
-brew install ffmpeg
+# 1. Instalar dependências
+brew install ffmpeg yt-dlp
 
 # 2. Instalar parakeet-mlx
 uv tool install parakeet-mlx -U
@@ -55,14 +55,18 @@ Na primeira transcrição, o modelo (~600MB) é baixado automaticamente do Huggi
 # Transcrever um arquivo (saída no mesmo diretório do áudio)
 transcript audio.m4a
 
+# Transcrever um vídeo do YouTube (saída no diretório atual)
+transcript "https://www.youtube.com/watch?v=..."
+
 # Transcrever com diretório de saída customizado
 transcript audio.m4a --out ~/transcrições/
+transcript "https://youtube.com/watch?v=..." --out ~/transcrições/
 
-# Múltiplos arquivos
-transcript aula1.m4a aula2.mov reuniao.mp3
+# Múltiplos arquivos e URLs juntos
+transcript aula1.m4a "https://youtube.com/watch?v=..." reuniao.mp3
 ```
 
-Formatos suportados: qualquer formato que o `ffmpeg` aceita (`.m4a`, `.mp3`, `.wav`, `.mov`, `.mp4`, etc.)
+Formatos suportados: qualquer formato que o `ffmpeg` aceita (`.m4a`, `.mp3`, `.wav`, `.mov`, `.mp4`, etc.), além de qualquer URL suportada pelo `yt-dlp` (YouTube, Vimeo, etc.).
 
 ## Idiomas suportados
 

@@ -155,6 +155,26 @@ assert_not_contains "--chunk 0 não emite erro de validação" "$output" "Erro:"
 echo ""
 
 # ---------------------------------------------------------------------------
+# 10. URLs: parsing e detecção
+# ---------------------------------------------------------------------------
+echo "# Grupo 10: suporte a URLs"
+
+# URL de YouTube deve ser aceita pelo parser (não "Opção desconhecida")
+# Vai falhar no download (sem rede real no teste) mas não no parsing
+output=$("$SCRIPT" "https://www.youtube.com/watch?v=test123" 2>&1) && code=$? || code=$?
+assert_not_contains "URL aceita como argumento (não é opção desconhecida)" "$output" "Opção desconhecida"
+
+# URL HTTP genérica também deve ser aceita
+output=$("$SCRIPT" "https://example.com/audio.mp3" 2>&1) && code=$? || code=$?
+assert_not_contains "URL HTTP genérica aceita como argumento" "$output" "Opção desconhecida"
+
+# String que não é URL nem arquivo existente deve mostrar "não encontrado"
+# (não "Opção desconhecida" — foi parseada como argumento posicional)
+output=$("$SCRIPT" "nao_e_url_nem_arquivo" 2>&1) && code=$? || code=$?
+assert_not_contains "argumento sem http:// tratado como arquivo, não opção" "$output" "Opção desconhecida"
+echo ""
+
+# ---------------------------------------------------------------------------
 # Resultado final
 # ---------------------------------------------------------------------------
 echo "==================================="
